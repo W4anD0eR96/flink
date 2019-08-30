@@ -621,6 +621,8 @@ public class DispatcherTest extends TestLogger {
 
 		electDispatcher();
 
+		jobMasterLeaderElectionService.isLeader(UUID.randomUUID());
+
 		final Throwable error = fatalErrorHandler.getErrorFuture().get(TIMEOUT.toMilliseconds(), TimeUnit.MILLISECONDS);
 
 		assertThat(ExceptionUtils.findThrowableWithMessage(error, testException.getMessage()).isPresent(), is(true));

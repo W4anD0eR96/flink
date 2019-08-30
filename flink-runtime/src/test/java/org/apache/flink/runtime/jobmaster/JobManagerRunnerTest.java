@@ -222,12 +222,12 @@ public class JobManagerRunnerTest extends TestLogger {
 	 */
 	@Test
 	public void testConcurrentLeadershipOperationsBlockingSuspend() throws Exception {
-		final CompletableFuture<Acknowledge> suspendedFuture = new CompletableFuture<>();
-
+		CompletableFuture<Void> closeFuture = new CompletableFuture<>();
 		TestingJobMasterServiceFactory jobMasterServiceFactory = new TestingJobMasterServiceFactory(
 			() -> new TestingJobMasterService(
 				"localhost",
-				e -> suspendedFuture));
+				ignore -> CompletableFuture.completedFuture(Acknowledge.get()),
+				() -> closeFuture));
 		JobManagerRunner jobManagerRunner = createJobManagerRunner(jobMasterServiceFactory);
 
 		jobManagerRunner.start();
@@ -248,7 +248,7 @@ public class JobManagerRunnerTest extends TestLogger {
 			// expected
 		}
 
-		suspendedFuture.complete(Acknowledge.get());
+		closeFuture.complete(null);
 
 		leaderFuture.get();
 	}
@@ -259,17 +259,17 @@ public class JobManagerRunnerTest extends TestLogger {
 	 */
 	@Test
 	public void testConcurrentLeadershipOperationsBlockingGainLeadership() throws Exception {
-		final CompletableFuture<Exception> suspendFuture = new CompletableFuture<>();
 		final CompletableFuture<Acknowledge> startFuture = new CompletableFuture<>();
+		final CompletableFuture<Void> closeFuture = new CompletableFuture<>();
 
 		TestingJobMasterServiceFactory jobMasterServiceFactory = new TestingJobMasterServiceFactory(
 			() -> new TestingJobMasterService(
 				"localhost",
-				e -> {
-					suspendFuture.complete(e);
-					return CompletableFuture.completedFuture(Acknowledge.get());
-				},
-				ignored -> startFuture));
+				ignored -> startFuture,
+				() -> {
+					closeFuture.complete(null);
+					return CompletableFuture.completedFuture(null);
+				}));
 		JobManagerRunner jobManagerRunner = createJobManagerRunner(jobMasterServiceFactory);
 
 		jobManagerRunner.start();
@@ -278,19 +278,16 @@ public class JobManagerRunnerTest extends TestLogger {
 
 		leaderElectionService.notLeader();
 
-		// suspending should wait for the start to happen first
-		assertThat(suspendFuture.isDone(), is(false));
-
 		try {
-			suspendFuture.get(1L, TimeUnit.MILLISECONDS);
-			fail("Suspended leadership even though the JobMaster has not been started.");
+			closeFuture.get(1L, TimeUnit.MILLISECONDS);
+			fail("Granted leadership even though the JobMaster has not been suspended.");
 		} catch (TimeoutException expected) {
 			// expected
 		}
 
 		startFuture.complete(Acknowledge.get());
 
-		suspendFuture.get();
+		closeFuture.get();
 	}
 
 	@Nonnull

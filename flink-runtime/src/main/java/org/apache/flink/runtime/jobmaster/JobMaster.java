@@ -308,26 +308,6 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 	}
 
 	/**
-	 * Suspending job, all the running tasks will be cancelled, and communication with other components
-	 * will be disposed.
-	 *
-	 * <p>Mostly job is suspended because of the leadership has been revoked, one can be restart this job by
-	 * calling the {@link #start(JobMasterId)} method once we take the leadership back again.
-	 *
-	 * <p>This method is executed asynchronously
-	 *
-	 * @param cause The reason of why this job been suspended.
-	 * @return Future acknowledge indicating that the job has been suspended. Otherwise the future contains an exception
-	 */
-	public CompletableFuture<Acknowledge> suspend(final Exception cause) {
-		CompletableFuture<Acknowledge> suspendFuture = callAsyncWithoutFencing(
-				() -> suspendExecution(cause),
-				RpcUtils.INF_TIMEOUT);
-
-		return suspendFuture.whenComplete((acknowledge, throwable) -> stop());
-	}
-
-	/**
 	 * Suspend the job and shutdown all other services including rpc.
 	 */
 	@Override
@@ -753,12 +733,12 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 	 *
 	 * @param cause The reason of why this job been suspended.
 	 */
-	private Acknowledge suspendExecution(final Exception cause) {
+	private void suspendExecution(final Exception cause) {
 		validateRunsInMainThread();
 
 		if (getFencingToken() == null) {
 			log.debug("Job has already been suspended or shutdown.");
-			return Acknowledge.get();
+			return;
 		}
 
 		// not leader anymore --> set the JobMasterId to null
@@ -780,8 +760,6 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		closeResourceManagerConnection(cause);
 
 		stopHeartbeatServices();
-
-		return Acknowledge.get();
 	}
 
 	private void stopHeartbeatServices() {

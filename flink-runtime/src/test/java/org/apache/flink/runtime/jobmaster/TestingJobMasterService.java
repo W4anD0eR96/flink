@@ -26,6 +26,7 @@ import javax.annotation.Nonnull;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * Implementation of the {@link JobMasterService} for testing purposes.
@@ -36,42 +37,36 @@ public class TestingJobMasterService implements JobMasterService {
 	private final String address;
 
 	@Nonnull
-	private final Function<Exception, CompletableFuture<Acknowledge>> suspendFunction;
+	private final Function<JobMasterId, CompletableFuture<Acknowledge>> startFunction;
 
 	@Nonnull
-	private final Function<JobMasterId, CompletableFuture<Acknowledge>> startFunction;
+	private final Supplier<CompletableFuture<Void>> closeFuture;
 
 	private JobMasterGateway jobMasterGateway;
 
-	public TestingJobMasterService(@Nonnull String address, @Nonnull Function<Exception, CompletableFuture<Acknowledge>> suspendFunction) {
-		this(address, suspendFunction, ignored -> CompletableFuture.completedFuture(Acknowledge.get()));
+	public TestingJobMasterService() {
+		this("localhost");
+	}
+
+	public TestingJobMasterService(@Nonnull String address) {
+		this(address,
+			ignored -> CompletableFuture.completedFuture(Acknowledge.get()),
+			() -> CompletableFuture.completedFuture(null));
 	}
 
 	public TestingJobMasterService(
 		@Nonnull String address,
-		@Nonnull Function<Exception, CompletableFuture<Acknowledge>> suspendFunction,
-		@Nonnull Function<JobMasterId, CompletableFuture<Acknowledge>> startFunction) {
+		@Nonnull Function<JobMasterId, CompletableFuture<Acknowledge>> startFunction,
+		@Nonnull Supplier<CompletableFuture<Void>> closeFuture) {
 		this.address = address;
-		this.suspendFunction = suspendFunction;
 		this.startFunction = startFunction;
-	}
-
-	public TestingJobMasterService() {
-		this(
-			"localhost",
-			e -> CompletableFuture.completedFuture(Acknowledge.get()));
+		this.closeFuture = closeFuture;
 	}
 
 	@Override
 	public CompletableFuture<Acknowledge> start(JobMasterId jobMasterId) {
 			jobMasterGateway = new TestingJobMasterGatewayBuilder().build();
 			return startFunction.apply(jobMasterId);
-	}
-
-	@Override
-	public CompletableFuture<Acknowledge> suspend(Exception cause) {
-		jobMasterGateway = null;
-		return suspendFunction.apply(cause);
 	}
 
 	@Override
@@ -88,6 +83,6 @@ public class TestingJobMasterService implements JobMasterService {
 	@Override
 	public CompletableFuture<Void> closeAsync() {
 		jobMasterGateway = null;
-		return CompletableFuture.completedFuture(null);
+		return closeFuture.get();
 	}
 }

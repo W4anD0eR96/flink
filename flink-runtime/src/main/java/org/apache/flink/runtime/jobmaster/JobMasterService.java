@@ -38,15 +38,6 @@ public interface JobMasterService extends AutoCloseableAsync {
 	CompletableFuture<Acknowledge> start(JobMasterId jobMasterId) throws Exception;
 
 	/**
-	 * Suspend the JobMaster service. This means that the service will stop to react
-	 * to messages.
-	 *
-	 * @param cause for the suspension
-	 * @return Future which is completed once the JobMaster service has been suspended
-	 */
-	CompletableFuture<Acknowledge> suspend(Exception cause);
-
-	/**
 	 * Get the {@link JobMasterGateway} belonging to this service.
 	 *
 	 * @return JobMasterGateway belonging to this service

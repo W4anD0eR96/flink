@@ -990,49 +990,6 @@ public class JobMasterTest extends TestLogger {
 	}
 
 	/**
-	 * Tests that the a JM connects to the leading RM after regaining leadership.
-	 */
-	@Test
-	public void testResourceManagerConnectionAfterRegainingLeadership() throws Exception {
-		final JobMaster jobMaster = createJobMaster(
-			configuration,
-			jobGraph,
-			haServices,
-			new TestingJobManagerSharedServicesBuilder().build());
-
-		CompletableFuture<Acknowledge> startFuture = jobMaster.start(jobMasterId);
-
-		try {
-			// wait for the start to complete
-			startFuture.get(testingTimeout.toMilliseconds(), TimeUnit.MILLISECONDS);
-
-			final TestingResourceManagerGateway testingResourceManagerGateway = createAndRegisterTestingResourceManagerGateway();
-
-			final BlockingQueue<JobMasterId> registrationQueue = new ArrayBlockingQueue<>(1);
-			testingResourceManagerGateway.setRegisterJobManagerConsumer(
-				jobMasterIdResourceIDStringJobIDTuple4 -> registrationQueue.offer(jobMasterIdResourceIDStringJobIDTuple4.f0));
-
-			notifyResourceManagerLeaderListeners(testingResourceManagerGateway);
-
-			final JobMasterId firstRegistrationAttempt = registrationQueue.take();
-
-			assertThat(firstRegistrationAttempt, equalTo(jobMasterId));
-
-			jobMaster.suspend(new FlinkException("Test exception.")).get();
-
-			final JobMasterId jobMasterId2 = JobMasterId.generate();
-
-			jobMaster.start(jobMasterId2).get();
-
-			final JobMasterId secondRegistrationAttempt = registrationQueue.take();
-
-			assertThat(secondRegistrationAttempt, equalTo(jobMasterId2));
-		} finally {
-			RpcUtils.terminateRpcEndpoint(jobMaster, testingTimeout);
-		}
-	}
-
-	/**
 	 * Tests that input splits assigned to an Execution will be returned to the InputSplitAssigner
 	 * if this execution fails.
 	 */
