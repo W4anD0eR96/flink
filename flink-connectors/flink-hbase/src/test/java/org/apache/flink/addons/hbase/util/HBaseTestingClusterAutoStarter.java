@@ -144,6 +144,8 @@ public abstract class HBaseTestingClusterAutoStarter extends AbstractTestBase {
 	public static void setUp() throws Exception {
 		LOG.info("HBase minicluster: Starting");
 
+		System.setProperty("zookeeper.4lw.commands.whitelist", "*");
+
 		TEST_UTIL.startMiniCluster(1);
 
 		// https://issues.apache.org/jira/browse/HBASE-11711
