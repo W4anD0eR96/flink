@@ -253,7 +253,7 @@ public final class Utils {
 		return localResource;
 	}
 
-	private static LocalResource registerLocalResource(FileSystem fs, Path remoteRsrcPath) throws IOException {
+	static LocalResource registerLocalResource(FileSystem fs, Path remoteRsrcPath) throws IOException {
 		LocalResource localResource = Records.newRecord(LocalResource.class);
 		FileStatus jarStat = fs.getFileStatus(remoteRsrcPath);
 		localResource.setResource(ConverterUtils.getYarnUrlFromURI(remoteRsrcPath.toUri()));

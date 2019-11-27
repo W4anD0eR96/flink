@@ -274,14 +274,12 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine {
 
 	private Path getLocalFlinkDistPathFromCmd(final CommandLine cmd) {
 		final String flinkJarOptionName = flinkJar.getOpt();
+
 		if (!cmd.hasOption(flinkJarOptionName)) {
 			return null;
 		}
 
 		String userPath = cmd.getOptionValue(flinkJarOptionName);
-		if (!userPath.startsWith("file://")) {
-			userPath = "file://" + userPath;
-		}
 		return new Path(userPath);
 	}
 

@@ -107,6 +107,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -242,9 +243,10 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 	}
 
 	public void setLocalJarPath(Path localJarPath) {
-		if (!localJarPath.toString().endsWith("jar")) {
-			throw new IllegalArgumentException("The passed jar path ('" + localJarPath + "') does not end with the 'jar' extension");
-		}
+		checkArgument(
+			localJarPath.toString().endsWith("jar"),
+			"The passed jar path ('%s') does not end with the 'jar' extension",
+			localJarPath);
 		this.flinkJarPath = localJarPath;
 	}
 
@@ -272,12 +274,15 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 	}
 
 	private void isReadyForDeployment(ClusterSpecification clusterSpecification) throws YarnDeploymentException {
-
 		if (clusterSpecification.getNumberTaskManagers() <= 0) {
 			throw new YarnDeploymentException("Taskmanager count must be positive");
 		}
 		if (this.flinkJarPath == null) {
 			throw new YarnDeploymentException("The Flink jar path is null");
+		}
+		final String flinkJarScheme = this.flinkJarPath.toUri().getScheme();
+		if (flinkJarScheme != null && !flinkJarScheme.equals("file") && !flinkJarScheme.equals("hdfs")) {
+			throw new YarnDeploymentException("Unhandled scheme of the Flink jar " + flinkJarPath);
 		}
 		if (this.flinkConfiguration == null) {
 			throw new YarnDeploymentException("Flink configuration object has not been set");
@@ -844,14 +849,28 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		}
 
 		// Setup jar for ApplicationMaster
-		Path remotePathJar = setupSingleLocalResource(
-				flinkJarPath.getName(),
-				fs,
-				appId,
-				flinkJarPath,
-				localResources,
-				homeDir,
-				"");
+		Path remotePathJar;
+		{
+			String flinkJarScheme = flinkJarPath.toUri().getScheme();
+
+			// guarded by #isReadyForDeployment
+			assert !(flinkJarScheme != null && !flinkJarScheme.equals("file") && !flinkJarScheme.equals("hdfs"));
+
+			if (Objects.equals(flinkJarScheme, "hdfs")) {
+				remotePathJar = flinkJarPath;
+				localResources.put(flinkJarPath.getName(), Utils.registerLocalResource(fs, flinkJarPath));
+			} else {
+				// if (Objects.equals(flinkJarScheme, "file") || Objects.isNull(flinkJarScheme))
+				remotePathJar = setupSingleLocalResource(
+					flinkJarPath.getName(),
+					fs,
+					appId,
+					flinkJarPath,
+					localResources,
+					homeDir,
+					"");
+			}
+		}
 
 		// set the right configuration values for the TaskManager
 		configuration.setInteger(
